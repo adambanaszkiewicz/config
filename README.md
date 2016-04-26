@@ -96,7 +96,7 @@ files[2] = "./some-yaml.file.yaml"
 
 ## @todo
 
-- Prefixes for imported files to allow import files from different place: *****'%root%/config.file.php'*****, *****'%server-config%/some.file.ini'*****
+- Prefixes for imported files to allow import files from different place: ***'%root%/config.file.php'***, ***'%server-config%/some.file.ini'***
 - XML files support
 - **You want some more...?**
 
