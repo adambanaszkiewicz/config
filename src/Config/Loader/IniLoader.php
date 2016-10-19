@@ -37,13 +37,23 @@ class IniLoader extends BaseLoader
     /**
      * {@inheritdoc}
      */
-    public function load()
+    public function load($forceNew = false)
     {
         if(! is_file($this->filepath))
         {
             throw new RuntimeException('File "'.$this->filepath.'" cannot be found.');
         }
 
-        return parse_ini_file($this->filepath, $this->parseSections);
+        if($forceNew === true)
+        {
+            $this->cachedData = null;
+        }
+
+        if($this->cachedData)
+        {
+            return $this->cachedData;
+        }
+
+        return $this->cachedData = parse_ini_file($this->filepath, $this->parseSections);
     }
 }

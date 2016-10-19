@@ -40,13 +40,13 @@ class Config implements ConfigInterface
     protected $data = [];
 
     /**
-     * Store array of modification times of each file imported
+     * Store array of metadata of each file imported
      * to Config object. Index is filepath and value is an array
      * with filemtime() function result, and the parent filepath
      * from is imported.
      * @var array
      */
-    protected $modificationTimes = [];
+    protected $metadata = [];
 
     /**
      * Store information, if any of imported files is included
@@ -55,6 +55,13 @@ class Config implements ConfigInterface
      * @var boolean
      */
     protected $anyFileChanged = false;
+
+    /**
+     * Store loaders, for load all configs again, if some of currently
+     * loading configs arent't fresh.
+     * @var array
+     */
+    protected $loaders = [];
 
     /**
      * Constructor.
@@ -70,9 +77,9 @@ class Config implements ConfigInterface
     /**
      * {@inheritdoc}
      */
-    public function getModificationTimes()
+    public function getMetadata()
     {
-        return $this->modificationTimes;
+        return $this->metadata;
     }
 
     /**
@@ -88,25 +95,38 @@ class Config implements ConfigInterface
      */
     public function appendFromLoader(LoaderInterface $loader)
     {
-        if($this->isFresh($loader->getFilepath()) === false)
+        $filepath = $loader->getFilepath();
+
+        $this->loaders[$filepath] = $loader;
+
+        if($this->isFresh($filepath) === false)
         {
-            $this->data = array_merge($this->data, $loader->load());
+            $data = $loader->load(true);
+
+            if(isset($this->metadata[$filepath]))
+            {
+                $this->removeIndexes($this->metadata[$filepath]['indexes']);
+            }
+
+            $this->data = array_merge($this->data, $data);
 
             $this->resolveImports($loader);
 
-            $this->modificationTimes[$loader->getFilepath()] = [
-                'time'   => $loader->getModificationTime(),
-                'parent' => $loader->getParentFilepath()
+            $this->metadata[$filepath] = [
+                'time'    => $loader->getModificationTime(),
+                'parent'  => $loader->getParentFilepath(),
+                'indexes' => $this->getIndexes($data),
+                'imports' => isset($data['imports']) ? $data['imports'] : []
             ];
 
             $this->anyFileChanged = true;
         }
 
-        foreach($this->modificationTimes as $name => $file)
+        foreach($this->metadata as $name => $file)
         {
-            if($file['parent'] === $loader->getFilepath() && $this->isFresh($name) === false)
+            if($file['parent'] === $filepath && $this->isFresh($name) === false)
             {
-                $this->appendFromLoader(BaseLoader::factory($name)->setParentFilepath($loader->getFilepath()));
+                $this->appendFromLoader(BaseLoader::factory($name)->setParentFilepath($filepath));
             }
         }
 
@@ -127,7 +147,7 @@ class Config implements ConfigInterface
     public function merge(ConfigInterface $config)
     {
         $this->data = array_merge($this->data, $config->all());
-        $this->modificationTimes = array_merge($this->modificationTimes, $config->getModificationTimes());
+        $this->metadata = array_merge($this->metadata, $config->getMetadata());
 
         return $this;
     }
@@ -243,14 +263,19 @@ class Config implements ConfigInterface
      */
     public function isFresh($filepath)
     {
-        if(isset($this->modificationTimes[$filepath]['time']) === false)
+        if(isset($this->metadata[$filepath]['time']) === false)
         {
             return false;
         }
 
+        if(is_file($filepath) === false)
+        {
+            return 0;
+        }
+
         $mtime = filemtime($filepath);
 
-        if($this->modificationTimes[$filepath]['time'] < $mtime)
+        if($this->metadata[$filepath]['time'] < $mtime)
         {
             return false;
         }
@@ -263,21 +288,39 @@ class Config implements ConfigInterface
      */
     public function resolveImports(LoaderInterface $loader)
     {
+        $filepath = $loader->getFilepath();
+
         if(isset($this->data['imports']['files']))
         {
-            $dir = pathinfo($loader->getFilepath(), PATHINFO_DIRNAME);
+            if(isset($this->metadata[$filepath]['imports']['files']))
+            {
+                $removed = array_diff($this->metadata[$filepath]['imports']['files'], $this->data['imports']['files']);
+                $added   = array_diff($this->data['imports']['files'], $this->metadata[$filepath]['imports']['files']);
+
+                $this->removeConfig($loader, $removed);
+
+                foreach($added as $path)
+                {
+                    if($key = array_search($path, $this->data['imports']['files']) !== false)
+                    {
+                        unset($this->data['imports']['files'][$key]);
+                        unset($this->metadata[$path]);
+                    }
+                }
+            }
+
             $loaders = [];
 
             foreach($this->data['imports']['files'] as $file)
             {
-                $path = "$dir/$file";
+                $path = $this->createFilepath($loader, $file);
 
                 if(is_file($path) === false)
                 {
                     throw new RuntimeException('Imported config file "'.$path.'" does not exists.');
                 }
 
-                $loaders[] = BaseLoader::factory($path)->setParentFilepath($loader->getFilepath());
+                $loaders[] = BaseLoader::factory($path)->setParentFilepath($filepath);
             }
 
             unset($this->data['imports']);
@@ -291,8 +334,45 @@ class Config implements ConfigInterface
                 $this->appendFromLoader($loader);
             }
         }
+        else
+        {
+            if(isset($this->metadata[$filepath]['imports']['files']))
+            {
+                foreach($this->metadata[$filepath]['imports']['files'] as $file)
+                {
+                    $path = $this->createFilepath($loader, $file);
+
+                    if(isset($this->metadata[$path]))
+                    {
+                        $this->removeIndexes($this->metadata[$path]['indexes']);
+                        unset($this->metadata[$path]);
+                    }
+                }
+            }
+        }
 
         return $this;
+    }
+
+    protected function removeConfig(LoaderInterface $loader, array $filepaths)
+    {
+        foreach($filepaths as $file)
+        {
+            $path = $this->createFilepath($loader, $file);
+
+            if(isset($this->metadata[$path]))
+            {
+                $this->removeIndexes($this->metadata[$path]['indexes']);
+                unset($this->metadata[$path]);
+            }
+        }
+    }
+
+    protected function createFilepath(LoaderInterface $loader, $file)
+    {
+        $dir = pathinfo($loader->getFilepath(), PATHINFO_DIRNAME);
+
+        return realpath("$dir/$file");
     }
 
     /**
@@ -325,10 +405,10 @@ class Config implements ConfigInterface
 
         if($this->anyFileChanged)
         {
-            return file_put_contents($this->cacheFilepath, "<?php return ['times' => ".var_export($this->modificationTimes, true).", 'data' => ".var_export($this->data, true)."];");
+            return file_put_contents($this->cacheFilepath, "<?php return ['meta' => ".var_export($this->metadata, true).", 'data' => ".var_export($this->data, true)."];");
         }
 
-        return true;
+        return null;
     }
 
     /**
@@ -348,11 +428,24 @@ class Config implements ConfigInterface
             $this->data = $data['data'];
         }
 
-        if(isset($data['times']))
+        if(isset($data['meta']))
         {
-            $this->modificationTimes = $data['times'];
+            $this->metadata = $data['meta'];
         }
 
         return $this;
+    }
+
+    protected function getIndexes(array $data)
+    {
+        return array_keys($data);
+    }
+
+    protected function removeIndexes(array $indexes)
+    {
+        foreach($indexes as $index)
+        {
+            unset($this->data[$index]);
+        }
     }
 }

@@ -24,7 +24,7 @@ interface ConfigInterface
      * Gets modification times of each file imported to object.
      * @return array
      */
-    public function getModificationTimes();
+    public function getMetadata();
 
     /**
      * Gets boolean info, if any of imported file was changed.

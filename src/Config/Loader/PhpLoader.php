@@ -23,13 +23,23 @@ class PhpLoader extends BaseLoader
     /**
      * {@inheritdoc}
      */
-    public function load()
+    public function load($forceNew = false)
     {
         if(! is_file($this->filepath))
         {
             throw new RuntimeException('File "'.$this->filepath.'" cannot be found.');
         }
 
-        return include $this->filepath;
+        if($forceNew === true)
+        {
+            $this->cachedData = null;
+        }
+
+        if($this->cachedData)
+        {
+            return $this->cachedData;
+        }
+
+        return $this->cachedData = include $this->filepath;
     }
 }

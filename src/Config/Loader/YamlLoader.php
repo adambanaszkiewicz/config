@@ -37,13 +37,23 @@ class YamlLoader extends BaseLoader
     /**
      * {@inheritdoc}
      */
-    public function load()
+    public function load($forceNew = false)
     {
         if(! is_file($this->filepath))
         {
             throw new RuntimeException('File "'.$this->filepath.'" cannot be found.');
         }
 
-        return Spyc::YAMLLoad($this->filepath);
+        if($forceNew === true)
+        {
+            $this->cachedData = null;
+        }
+
+        if($this->cachedData)
+        {
+            return $this->cachedData;
+        }
+
+        return $this->cachedData = Spyc::YAMLLoad($this->filepath);
     }
 }

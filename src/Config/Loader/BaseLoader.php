@@ -25,10 +25,17 @@ abstract class BaseLoader implements LoaderInterface
     protected $filepath;
 
     /**
-     * Configoration parent filepath.
-     * @var [type]
+     * Configuration parent filepath.
+     * @var string
      */
     protected $parentFilepath;
+
+    /**
+     * Store cached data from file, prevent multiple times
+     * include and parse the same file.
+     * @var mixed
+     */
+    protected $cachedData;
 
     /**
      * Constructor.

@@ -20,9 +20,10 @@ interface LoaderInterface
 {
     /**
      * Imports file, parse it and returns its content as array.
+     * @param boolean $forceNew Force get new data from file instead of cached in loader.
      * @return array Parsed data from file.
      */
-    public function load();
+    public function load($forceNew = false);
 
     /**
      * Sets path to config file.
