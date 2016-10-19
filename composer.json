@@ -13,7 +13,7 @@
         }
     ],
     "require": {
-        "php": ">=5.5.0",
+        "php": "~5.5 || ^7.0",
         "mustangostang/spyc": "0.5.*"
     },
     "autoload": {
