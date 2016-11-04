@@ -403,6 +403,16 @@ class Config implements ConfigInterface
             return null;
         }
 
+        if(is_file($this->cacheFilepath) === false)
+        {
+            $directory = pathinfo($this->cacheFilepath, PATHINFO_DIRNAME);
+
+            if(is_dir($directory) === false)
+            {
+                mkdir($directory, 0770, true);
+            }
+        }
+
         if($this->anyFileChanged)
         {
             return file_put_contents($this->cacheFilepath, "<?php return ['meta' => ".var_export($this->metadata, true).", 'data' => ".var_export($this->data, true)."];");
