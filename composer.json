@@ -3,7 +3,7 @@
     "description": "Simple Config library, that handle PHP arrays, YAML and INI files as configs and can dump all configs into one PHP file as Cache.",
     "keywords": ["config", "conf", "configuration", "settings", "setting", "php"],
     "license": "MIT",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "homepage": "https://github.com/requtize/config",
     "authors": [
         {
