@@ -4,16 +4,17 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Copyright (c) 2016 by Adam Banaszkiewicz
+ * Copyright (c) 2016 - 2017 by Adam Banaszkiewicz
  *
  * @license   MIT License
- * @copyright Copyright (c) 2016, Adam Banaszkiewicz
+ * @copyright Copyright (c) 2016 - 2017, Adam Banaszkiewicz
  * @link      https://github.com/requtize/config
  */
 
 namespace Requtize\Config;
 
 use RuntimeException;
+use Requtize\FreshFile\FreshFile;
 use Requtize\Config\Loader\LoaderInterface;
 use Requtize\Config\Loader\BaseLoader;
 
@@ -28,6 +29,11 @@ class Config implements ConfigInterface
     const SEPARATOR = '.';
 
     /**
+     * @var Requtize\FreshFile\FreshFile
+     */
+    protected $freshFile;
+
+    /**
      * Cache filepath, where You want to save it.
      * @var string
      */
@@ -40,15 +46,6 @@ class Config implements ConfigInterface
     protected $data = [];
 
     /**
-     * Store array of metadata of each file imported
-     * to Config object. Index is filepath and value is an array
-     * with filemtime() function result, and the parent filepath
-     * from is imported.
-     * @var array
-     */
-    protected $metadata = [];
-
-    /**
      * Store information, if any of imported files is included
      * again (before taken from Cache file). This prevents from
      * save Cache file when none of files was updated.
@@ -57,11 +54,10 @@ class Config implements ConfigInterface
     protected $anyFileChanged = false;
 
     /**
-     * Store loaders, for load all configs again, if some of currently
-     * loading configs arent't fresh.
+     * Store list of parsed files imported both from file and object call.
      * @var array
      */
-    protected $loaders = [];
+    protected $parsedFiles = [];
 
     /**
      * Constructor.
@@ -69,65 +65,38 @@ class Config implements ConfigInterface
      */
     public function __construct($cacheFilepath = null)
     {
-        $this->cacheFilepath = $cacheFilepath;
+        if(is_string($cacheFilepath))
+        {
+            $this->setCacheFilepath($cacheFilepath);
+            $this->setFreshFile(new FreshFile(pathinfo($this->cacheFilepath, PATHINFO_DIRNAME).'.fresh-file'));
 
-        $this->resolveCacheData();
+            $this->resolveCacheData();
+        }
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getMetadata()
+    public function __destruct()
     {
-        return $this->metadata;
+        $this->saveToCache();
     }
 
     /**
      * {@inheritdoc}
      */
-    public function isAnyFileChanged()
-    {
-        return $this->anyFileChanged;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function appendFromLoader(LoaderInterface $loader)
+    public function appendFromLoader(LoaderInterface $loader, $forceRefresh = false)
     {
         $filepath = $loader->getFilepath();
 
-        $this->loaders[$filepath] = $loader;
-
-        if($this->isFresh($filepath) === false)
+        if($forceRefresh === true || $this->isFresh($filepath))
         {
             $data = $loader->load(true);
 
-            if(isset($this->metadata[$filepath]))
-            {
-                $this->removeIndexes($this->metadata[$filepath]['indexes']);
-            }
-
             $this->data = array_merge($this->data, $data);
+
+            $this->parsedFiles[] = $filepath;
 
             $this->resolveImports($loader);
 
-            $this->metadata[$filepath] = [
-                'time'    => $loader->getModificationTime(),
-                'parent'  => $loader->getParentFilepath(),
-                'indexes' => $this->getIndexes($data),
-                'imports' => isset($data['imports']) ? $data['imports'] : []
-            ];
-
             $this->anyFileChanged = true;
-        }
-
-        foreach($this->metadata as $name => $file)
-        {
-            if($file['parent'] === $filepath && $this->isFresh($name) === false)
-            {
-                $this->appendFromLoader(BaseLoader::factory($name)->setParentFilepath($filepath));
-            }
         }
 
         return $this;
@@ -147,7 +116,6 @@ class Config implements ConfigInterface
     public function merge(ConfigInterface $config)
     {
         $this->data = array_merge($this->data, $config->all());
-        $this->metadata = array_merge($this->metadata, $config->getMetadata());
 
         return $this;
     }
@@ -259,113 +227,72 @@ class Config implements ConfigInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Check if given filepane exists in $this->modificationTimes array
+     * and if is fresh. Otherwise return false.
+     * @param  string  $filepath Filepath to check if file is fresh.
+     * @return boolean
      */
-    public function isFresh($filepath)
+    protected function isFresh($filepath)
     {
-        if(isset($this->metadata[$filepath]['time']) === false)
+        if($this->freshFile)
         {
-            return false;
-        }
-
-        if(is_file($filepath) === false)
-        {
-            return 0;
-        }
-
-        $mtime = filemtime($filepath);
-
-        if($this->metadata[$filepath]['time'] < $mtime)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function resolveImports(LoaderInterface $loader)
-    {
-        $filepath = $loader->getFilepath();
-
-        if(isset($this->data['imports']['files']))
-        {
-            if(isset($this->metadata[$filepath]['imports']['files']))
-            {
-                $removed = array_diff($this->metadata[$filepath]['imports']['files'], $this->data['imports']['files']);
-                $added   = array_diff($this->data['imports']['files'], $this->metadata[$filepath]['imports']['files']);
-
-                $this->removeConfig($loader, $removed);
-
-                foreach($added as $path)
-                {
-                    if($key = array_search($path, $this->data['imports']['files']) !== false)
-                    {
-                        unset($this->data['imports']['files'][$key]);
-                        unset($this->metadata[$path]);
-                    }
-                }
-            }
-
-            $loaders = [];
-
-            foreach($this->data['imports']['files'] as $file)
-            {
-                $path = $this->createFilepath($loader, $file);
-
-                if(is_file($path) === false)
-                {
-                    throw new RuntimeException('Imported config file "'.$path.'" does not exists.');
-                }
-
-                $loaders[] = BaseLoader::factory($path)->setParentFilepath($filepath);
-            }
-
-            unset($this->data['imports']);
-
-            /**
-             * First we create loaders, and after remove imports, append these loaders
-             * to object. This prevent recursion loop.
-             */
-            foreach($loaders as $loader)
-            {
-                $this->appendFromLoader($loader);
-            }
+            return $this->freshFile->isFresh($filepath);
         }
         else
         {
-            if(isset($this->metadata[$filepath]['imports']['files']))
-            {
-                foreach($this->metadata[$filepath]['imports']['files'] as $file)
-                {
-                    $path = $this->createFilepath($loader, $file);
+            return true;
+        }
+    }
 
-                    if(isset($this->metadata[$path]))
-                    {
-                        $this->removeIndexes($this->metadata[$path]['indexes']);
-                        unset($this->metadata[$path]);
-                    }
-                }
+    /**
+     * Check if in current Config data exists index 'imports.file',
+     * and import files from given paths relative to file that
+     * contains these imports. At the end removes these indexes.
+     * @param  LoaderInterface $loader LoaderInterface object, which
+     *                                 contains filewith imports we
+     *                                 have to resolve.
+     * @return self
+     */
+    protected function resolveImports(LoaderInterface $loader)
+    {
+        $filepath = $loader->getFilepath();
+
+        if(isset($this->data['imports']) === false || is_array($this->data['imports']) === false)
+        {
+            return $this;
+        }
+
+        $loaders = [];
+
+        foreach($this->data['imports'] as $file)
+        {
+            $path = $this->createFilepath($loader, $file);
+
+            if(is_file($path) === false)
+            {
+                throw new RuntimeException('Imported config file "'.$path.'" does not exists.');
             }
+
+            $loaders[] = BaseLoader::factory($path)->setParentFilepath($filepath);
+        }
+
+        unset($this->data['imports']);
+
+        /**
+         * First we create loaders, and after remove imports, append these loaders
+         * to object. This prevent recursion loop.
+         */
+        foreach($loaders as $loader)
+        {
+            $this->appendFromLoader($loader, true);
         }
 
         return $this;
     }
 
-    protected function removeConfig(LoaderInterface $loader, array $filepaths)
+    public function getParsedFiles()
     {
-        foreach($filepaths as $file)
-        {
-            $path = $this->createFilepath($loader, $file);
-
-            if(isset($this->metadata[$path]))
-            {
-                $this->removeIndexes($this->metadata[$path]['indexes']);
-                unset($this->metadata[$path]);
-            }
-        }
+        return $this->parsedFiles;
     }
 
     protected function createFilepath(LoaderInterface $loader, $file)
@@ -391,6 +318,18 @@ class Config implements ConfigInterface
     public function getCacheFilepath()
     {
         return $this->cacheFilepath;
+    }
+
+    public function setFreshFile(FreshFile $freshFile)
+    {
+        $this->freshFile = $freshFile;
+
+        return $this;
+    }
+
+    public function getFreshFile()
+    {
+        return $this->freshFile;
     }
 
     /**
@@ -422,9 +361,10 @@ class Config implements ConfigInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Include Cache file, and take data from it.
+     * @return self
      */
-    public function resolveCacheData()
+    protected function resolveCacheData()
     {
         $data = [];
 
@@ -433,29 +373,11 @@ class Config implements ConfigInterface
             $data = include $this->cacheFilepath;
         }
 
-        if(isset($data['data']))
+        if(isset($data))
         {
-            $this->data = $data['data'];
-        }
-
-        if(isset($data['meta']))
-        {
-            $this->metadata = $data['meta'];
+            $this->data = $data;
         }
 
         return $this;
-    }
-
-    protected function getIndexes(array $data)
-    {
-        return array_keys($data);
-    }
-
-    protected function removeIndexes(array $indexes)
-    {
-        foreach($indexes as $index)
-        {
-            unset($this->data[$index]);
-        }
     }
 }

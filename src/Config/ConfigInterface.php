@@ -4,10 +4,10 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Copyright (c) 2016 by Adam Banaszkiewicz
+ * Copyright (c) 2016 - 2017 by Adam Banaszkiewicz
  *
  * @license   MIT License
- * @copyright Copyright (c) 2016, Adam Banaszkiewicz
+ * @copyright Copyright (c) 2016 - 2017, Adam Banaszkiewicz
  * @link      https://github.com/requtize/config
  */
 
@@ -20,18 +20,6 @@ use Requtize\Config\Loader\LoaderInterface;
  */
 interface ConfigInterface
 {
-    /**
-     * Gets modification times of each file imported to object.
-     * @return array
-     */
-    public function getMetadata();
-
-    /**
-     * Gets boolean info, if any of imported file was changed.
-     * @return boolean
-     */
-    public function isAnyFileChanged();
-
     /**
      * Appends config data from LoaderInterface object.
      * @param  LoaderInterface $loader LoaderInterface object with passed config filepath.
@@ -89,25 +77,6 @@ interface ConfigInterface
     public function access($path);
 
     /**
-     * Check if given filepane exists in $this->modificationTimes array
-     * and if is fresh. Otherwise return false.
-     * @param  string  $filepath Filepath to check if file is fresh.
-     * @return boolean
-     */
-    public function isFresh($filepath);
-
-    /**
-     * Check if in current Config data exists index 'imports.file',
-     * and import files from given paths relative to file that
-     * contains these imports. At the end removes these indexes.
-     * @param  LoaderInterface $loader LoaderInterface object, which
-     *                                 contains filewith imports we
-     *                                 have to resolve.
-     * @return self
-     */
-    public function resolveImports(LoaderInterface $loader);
-
-    /**
      * Sets cache filepath.
      * @param string $cacheFilepath
      */
@@ -124,10 +93,4 @@ interface ConfigInterface
      * @return null|boolean
      */
     public function saveToCache();
-
-    /**
-     * Include Cache file, and take data from it.
-     * @return self
-     */
-    public function resolveCacheData();
 }

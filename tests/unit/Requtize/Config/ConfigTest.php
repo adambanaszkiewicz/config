@@ -23,7 +23,7 @@ class ConfigTest extends PHPUnit_Framework_TestCase
 
     public function testGetSetHas()
     {
-        $config = new Config();
+        $config = new Config;
 
         $this->assertEquals([], $config->all());
 
@@ -48,13 +48,14 @@ class ConfigTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(false, $config->has('__non-existed-index__'));
         $this->assertEquals(true, $config->has('simpleIndex'));
         $this->assertEquals(true, $config->has('one1.two1'));
+        $this->assertEquals(false, $config->has('one1.twol')); // L instead of 1 !!!
         $this->assertEquals(true, $config->has('one2.two2.three2.four2.aser.343v2.4v5y673vc4.rty3.56une.asdfsdf.0.0.0.3456.1'));
         $this->assertEquals(true, $config->has('one2.two2.three2.four2.aser.343v2.4v5y673vc4.rty3.56une.asdfsdf.0'));
     }
 
-    public function testImportFromLoaderSimple()
+    public function testImportSimple()
     {
-        $config = new Config();
+        $config = new Config;
 
         $this->assertEquals([], $config->all());
 
@@ -64,17 +65,31 @@ class ConfigTest extends PHPUnit_Framework_TestCase
 ];
 EOF;
 
-        $path = $this->createTmpFile($file);
-
-        $config->appendFromLoader(new PhpLoader($path));
+        $config->import($this->createTmpFile($file));
 
         $this->assertNotEquals([], $config->all());
         $this->assertEquals(true, $config->get('trueType'));
+        $this->assertEquals(null, $config->get('nullValue'));
+        $this->assertEquals(null, $config->get('integer'));
+
+        $file = <<<EOF
+<?php return [
+    'nullValue' => null,
+    'integer' => 1234
+];
+EOF;
+
+        $config->import($this->createTmpFile($file));
+
+        $this->assertNotEquals([], $config->all());
+        $this->assertEquals(true, $config->get('trueType'));
+        $this->assertEquals(null, $config->get('nullValue'));
+        $this->assertEquals(1234, $config->get('integer'));
     }
 
-    public function testImportFromLoaderWithImport()
+    public function testAppendFromLoaderWithImport()
     {
-        $config = new Config();
+        $config = new Config;
 
         $file = <<<EOF
 <?php return [
@@ -89,9 +104,7 @@ EOF;
 <?php return [
     'parent' => true,
     'imports' => [
-        'files' => [
-            '{$pathChildName}'
-        ]
+        '{$pathChildName}'
     ]
 ];
 EOF;
@@ -106,7 +119,7 @@ EOF;
         $this->assertEquals(true, $config->get('child'));
     }
 
-    public function testImportFromLoaderModificationTimeCheck()
+    /*public function testImportFromLoaderModificationTimeCheck()
     {
         $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
         $reflectionAnyFileChanged->setAccessible(true);
@@ -114,7 +127,7 @@ EOF;
         $reflectionModificationTimes = new ReflectionProperty('Requtize\\Config\\Config', 'modificationTimes');
         $reflectionModificationTimes->setAccessible(true);
 
-        $config = new Config();
+        $config = new Config;
 
         $file = <<<EOF
 <?php return [
@@ -125,7 +138,7 @@ EOF;
         /**
          * Without import, no files was changed and index not exists,
          * and returns default value.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('-not-exists-', $config->get('key', '-not-exists-'));
 
@@ -134,7 +147,7 @@ EOF;
 
         /**
          * After importing, some files has changed, and index exists.
-         */
+         *
         $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value1', $config->get('key', '-not-exists-'));
 
@@ -142,7 +155,7 @@ EOF;
 
         /**
          * Ensure, that we change value of property.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
 
         $config->appendFromLoader(new PhpLoader($path));
@@ -150,7 +163,7 @@ EOF;
         /**
          * After append the same file second time, none of files hase changed,
          * and the value on index is thge same.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value1', $config->get('key', '-not-exists-'));
 
@@ -169,12 +182,12 @@ EOF;
         /**
          * After append file third time, some files has changed, and new index
          * value need to be existent.
-         */
+         *
         $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value2', $config->get('key', '-not-exists-'));
-    }
+    }*/
 
-    public function testImportFromLoaderChildModificationTimeCheck()
+    /*public function testImportFromLoaderChildModificationTimeCheck()
     {
         $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
         $reflectionAnyFileChanged->setAccessible(true);
@@ -182,7 +195,7 @@ EOF;
         $reflectionModificationTimes = new ReflectionProperty('Requtize\\Config\\Config', 'modificationTimes');
         $reflectionModificationTimes->setAccessible(true);
 
-        $config = new Config();
+        $config = new Config;
 
         $file = <<<EOF
 <?php return [
@@ -197,9 +210,7 @@ EOF;
 <?php return [
     'parent' => 'value11',
     'imports' => [
-        'files' => [
-            '{$pathChildName}'
-        ]
+        '{$pathChildName}'
     ]
 ];
 EOF;
@@ -209,7 +220,7 @@ EOF;
         /**
          * Without import, no files was changed and index not exists,
          * and returns default value.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('-not-exists-', $config->get('parent', '-not-exists-'));
 
@@ -218,7 +229,7 @@ EOF;
 
         /**
          * After importing, some files has changed, and index exists.
-         */
+         *
         $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value11', $config->get('parent', '-not-exists-'));
 
@@ -226,7 +237,7 @@ EOF;
 
         /**
          * Ensure, that we change value of property.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
 
         $config->appendFromLoader(new PhpLoader($path));
@@ -234,7 +245,7 @@ EOF;
         /**
          * After append the same file second time, none of files hase changed,
          * and the value on index is thge same.
-         */
+         *
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value11', $config->get('parent', '-not-exists-'));
 
@@ -256,14 +267,14 @@ EOF;
         /**
          * After append file third time, some files has changed, and new index
          * value need to be existent.
-         */
+         *
         $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('value22', $config->get('child', '-not-exists-'));
-    }
+    }*/
 
     public function testMerge()
     {
-        $config1 = new Config();
+        $config1 = new Config;
 
         $file1 = <<<EOF
 <?php return [
@@ -276,7 +287,7 @@ EOF;
         $config1->appendFromLoader(new PhpLoader($path1));
 
 
-        $config2 = new Config();
+        $config2 = new Config;
 
         $file2 = <<<EOF
 <?php return [
@@ -298,7 +309,7 @@ EOF;
 
     public function testResolveImports()
     {
-        $config = new Config();
+        $config = new Config;
 
         $file1 = <<<EOF
 <?php return [ 'child1' => 'value-from-child-1' ];
@@ -328,12 +339,10 @@ EOF;
 <?php return [
     'parent' => 'value-from-parent',
     'imports' => [
-        'files' => [
-            '{$child1}',
-            '{$child2}',
-            '{$child3}',
-            '{$child4}'
-        ]
+        '{$child1}',
+        '{$child2}',
+        '{$child3}',
+        '{$child4}'
     ]
 ];
 EOF;
@@ -354,7 +363,7 @@ EOF;
      */
     public function testResolveImportsFail()
     {
-        $config = new Config();
+        $config = new Config;
 
         $file1 = <<<EOF
 <?php return [ 'child1' => 'value-from-child-1' ];
@@ -366,10 +375,8 @@ EOF;
 <?php return [
     'parent' => 'value-from-parent',
     'imports' => [
-        'files' => [
-            '{$child1}',
-            '_____unexistent-filepath_____.php'
-        ]
+        '{$child1}',
+        '_____unexistent-filepath_____.php'
     ]
 ];
 EOF;
@@ -379,12 +386,12 @@ EOF;
         $config->appendFromLoader(new PhpLoader($path));
     }
 
-    public function testSaveToCache()
+    /*public function testSaveToCache()
     {
         $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
         $reflectionAnyFileChanged->setAccessible(true);
 
-        $config = new Config();
+        $config = new Config;
 
         $file1 = <<<EOF
 <?php return [ 'child1' => 'value-from-child-1' ];
@@ -396,9 +403,7 @@ EOF;
 <?php return [
     'parent' => 'value-from-parent',
     'imports' => [
-        'files' => [
-            '{$child1}'
-        ]
+        '{$child1}'
     ]
 ];
 EOF;
@@ -437,7 +442,7 @@ EOF;
         // ...should not be saved, because nothing changed, no new files was added.
         $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
         $this->assertEquals('', file_get_contents($cacheFile));
-    }
+    }*/
 
     protected function createTmpFile($content)
     {
