@@ -12,13 +12,32 @@ class ConfigTest extends PHPUnit_Framework_TestCase
         $this->removeTmpFiles();
     }
 
+    protected function getCacheFilepath()
+    {
+        return __DIR__.'/../../cache/cache-file.php';
+    }
+
     public function testContructor()
     {
-        $cacheFile = '/home/user/www/domains/website.com/http_docs/Cache/file.php';
+        /**
+         * Empty contructor.
+         */
+        $config = new Config;
+
+        $this->assertNull($config->getCacheFilepath());
+        $this->assertNull($config->getFreshFile());
+
+
+        /**
+         * Constructor with cache filepath.
+         */
+        $cacheFile = $this->getCacheFilepath();
+        $this->tmpFiles[] = $cacheFile;
 
         $config = new Config($cacheFile);
 
         $this->assertEquals($cacheFile, $config->getCacheFilepath());
+        $this->assertNotNull($config->getFreshFile());
     }
 
     public function testGetSetHas()
@@ -119,158 +138,152 @@ EOF;
         $this->assertEquals(true, $config->get('child'));
     }
 
-    /*public function testImportFromLoaderModificationTimeCheck()
+    public function testImportWithImportInsideFile()
     {
-        $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
-        $reflectionAnyFileChanged->setAccessible(true);
-
-        $reflectionModificationTimes = new ReflectionProperty('Requtize\\Config\\Config', 'modificationTimes');
-        $reflectionModificationTimes->setAccessible(true);
-
+        /**
+         * Import for Yaml files.
+         */
+        $basepath = realpath(__DIR__.'/../../../resources');
         $config = new Config;
+        $config->import(realpath($basepath.'/full-same-yaml.yaml'));
 
-        $file = <<<EOF
-<?php return [
-    'key' => 'value1'
-];
-EOF;
-        
-        /**
-         * Without import, no files was changed and index not exists,
-         * and returns default value.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('-not-exists-', $config->get('key', '-not-exists-'));
+        $this->assertEquals([
+            realpath($basepath.'/full-same-yaml.yaml'),
+            realpath($basepath.'/custom-yaml.yaml')
+        ], $config->getParsedFiles());
 
-        $path = $this->createTmpFile($file);
-        $config->appendFromLoader(new PhpLoader($path));
+        $config->import(realpath($basepath.'/single.ini'));
 
-        /**
-         * After importing, some files has changed, and index exists.
-         *
-        $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value1', $config->get('key', '-not-exists-'));
+        $this->assertEquals([
+            realpath($basepath.'/full-same-yaml.yaml'),
+            realpath($basepath.'/custom-yaml.yaml'),
+            realpath($basepath.'/single.ini')
+        ], $config->getParsedFiles());
 
-        $reflectionAnyFileChanged->setValue($config, false);
 
         /**
-         * Ensure, that we change value of property.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
+         * Import for Yaml files.
+         */
+        $basepath = realpath(__DIR__.'/../../../resources');
+        $config = new Config;
+        $config->import(realpath($basepath.'/full-same-php.php'));
 
-        $config->appendFromLoader(new PhpLoader($path));
+        $this->assertEquals([
+            realpath($basepath.'/full-same-php.php'),
+            realpath($basepath.'/custom-php.php')
+        ], $config->getParsedFiles());
 
-        /**
-         * After append the same file second time, none of files hase changed,
-         * and the value on index is thge same.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value1', $config->get('key', '-not-exists-'));
+        $config->import(realpath($basepath.'/single.ini'));
 
-        $file = <<<EOF
-<?php return [
-    'key' => 'value2'
-];
-EOF;
+        $this->assertEquals([
+            realpath($basepath.'/full-same-php.php'),
+            realpath($basepath.'/custom-php.php'),
+            realpath($basepath.'/single.ini')
+        ], $config->getParsedFiles());
 
-        file_put_contents($path, $file);
 
-        $reflectionModificationTimes->setValue($config, [$path => [ 'time' => time() - 360, 'parent' => null ]]);
-
-        $config->appendFromLoader(new PhpLoader($path));
 
         /**
-         * After append file third time, some files has changed, and new index
-         * value need to be existent.
-         *
-        $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value2', $config->get('key', '-not-exists-'));
-    }*/
+         * Import for Yaml files.
+         */
+        $basepath = realpath(__DIR__.'/../../../resources');
+        $config = new Config;
+        $config->import(realpath($basepath.'/full-same-ini.ini'));
 
-    /*public function testImportFromLoaderChildModificationTimeCheck()
+        $this->assertEquals([
+            realpath($basepath.'/full-same-ini.ini'),
+            realpath($basepath.'/custom-ini.ini')
+        ], $config->getParsedFiles());
+
+        $config->import(realpath($basepath.'/single.php'));
+
+        $this->assertEquals([
+            realpath($basepath.'/full-same-ini.ini'),
+            realpath($basepath.'/custom-ini.ini'),
+            realpath($basepath.'/single.php')
+        ], $config->getParsedFiles());
+    }
+
+    public function testImportMultipleFiles()
     {
-        $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
-        $reflectionAnyFileChanged->setAccessible(true);
-
-        $reflectionModificationTimes = new ReflectionProperty('Requtize\\Config\\Config', 'modificationTimes');
-        $reflectionModificationTimes->setAccessible(true);
-
+        $basepath = realpath(__DIR__.'/../../../resources');
         $config = new Config;
+        $config->import([
+            realpath($basepath.'/single.php'),
+            realpath($basepath.'/single.ini'),
+            realpath($basepath.'/single.yaml')
+        ]);
 
-        $file = <<<EOF
-<?php return [
-    'child' => 'value21'
-];
-EOF;
+        $this->assertNotEquals('single php', $config->get('single'));
+        $this->assertNotEquals('single ini', $config->get('single'));
+        $this->assertEquals('single yaml', $config->get('single'));
 
-        $pathChild = $this->createTmpFile($file);
-        $pathChildName = pathinfo($pathChild, PATHINFO_BASENAME);
+        $this->assertEquals([
+            realpath($basepath.'/single.php'),
+            realpath($basepath.'/single.ini'),
+            realpath($basepath.'/single.yaml')
+        ], $config->getParsedFiles());
+    }
 
-        $file = <<<EOF
-<?php return [
-    'parent' => 'value11',
-    'imports' => [
-        '{$pathChildName}'
-    ]
-];
-EOF;
+    public function testImportWithCache()
+    {
+        $basepath  = realpath(__DIR__.'/../../../resources');
+        $cacheFile = $this->getCacheFilepath();
 
-        $path = $this->createTmpFile($file);
-        
-        /**
-         * Without import, no files was changed and index not exists,
-         * and returns default value.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('-not-exists-', $config->get('parent', '-not-exists-'));
+        $parseAndAssertEmpty = function () use ($basepath, $cacheFile) {
+            $config = new Config($cacheFile);
+            $config->import(realpath($basepath.'/full-same-yaml.yaml'));
+            // Parsed files are empty, so there is no need to parse them again.
+            $this->assertEquals([], $config->getParsedFiles());
 
-        $path = $this->createTmpFile($file);
-        $config->appendFromLoader(new PhpLoader($path));
+            $config->getFreshFile()->writeMetadataFile();
+            $config->saveToCache();
+            unset($config);
+        };
 
-        /**
-         * After importing, some files has changed, and index exists.
-         *
-        $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value11', $config->get('parent', '-not-exists-'));
+        $parseTouchAndAssertNotEmpty = function ($file) use ($basepath, $cacheFile) {
+            touch($file, time() + 10);
+            $config = new Config($cacheFile);
+            $config->import(realpath($basepath.'/full-same-yaml.yaml'));
+            $this->assertNotEquals([], $config->getParsedFiles());
 
-        $reflectionAnyFileChanged->setValue($config, false);
+            $config->getFreshFile()->writeMetadataFile();
+            $config->saveToCache();
+            unset($config);
+        };
 
-        /**
-         * Ensure, that we change value of property.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
+        $config = new Config($cacheFile);
+        $config->getFreshFile()->writeMetadataFile();
+        $config->saveToCache();
 
-        $config->appendFromLoader(new PhpLoader($path));
+        $this->tmpFiles[] = $cacheFile;
+        $this->tmpFiles[] = $config->getFreshFile()->getCacheFilepath();
+        unset($config);
+        $this->removeTmpFiles();
 
-        /**
-         * After append the same file second time, none of files hase changed,
-         * and the value on index is thge same.
-         *
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value11', $config->get('parent', '-not-exists-'));
 
-        $file = <<<EOF
-<?php return [
-    'child' => 'value22'
-];
-EOF;
+        $config = new Config($cacheFile);
+        $config->import(realpath($basepath.'/full-same-yaml.yaml'));
+        // Parsed files are NOT empty, so these files were fresh and need to be parsed.
+        $this->assertNotEquals([], $config->getParsedFiles());
+        $this->assertEquals('value', $config->get('customYaml.key'));
 
-        file_put_contents($pathChild, $file);
+        $config->getFreshFile()->writeMetadataFile();
+        $config->saveToCache();
+        unset($config);
 
-        $modifications = $config->getModificationTimes();
-        $modifications[$pathChild] = [ 'time' => time() - 360, 'parent' => realpath($path) ];
+        $parseAndAssertEmpty();
 
-        $reflectionModificationTimes->setValue($config, $modifications);
+        // Touch main file should cause parse all files
+        $parseTouchAndAssertNotEmpty($basepath.'/full-same-yaml.yaml');
 
-        $config->appendFromLoader(new PhpLoader($pathChild));
+        $parseAndAssertEmpty();
 
-        /**
-         * After append file third time, some files has changed, and new index
-         * value need to be existent.
-         *
-        $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('value22', $config->get('child', '-not-exists-'));
-    }*/
+        // Touch imported file should cause parse all files
+        $parseTouchAndAssertNotEmpty($basepath.'/custom-yaml.yaml');
+
+        $parseAndAssertEmpty();
+    }
 
     public function testMerge()
     {
@@ -386,64 +399,6 @@ EOF;
         $config->appendFromLoader(new PhpLoader($path));
     }
 
-    /*public function testSaveToCache()
-    {
-        $reflectionAnyFileChanged = new ReflectionProperty('Requtize\\Config\\Config', 'anyFileChanged');
-        $reflectionAnyFileChanged->setAccessible(true);
-
-        $config = new Config;
-
-        $file1 = <<<EOF
-<?php return [ 'child1' => 'value-from-child-1' ];
-EOF;
-
-        $child1 = pathinfo($this->createTmpFile($file1), PATHINFO_BASENAME);
-
-        $file = <<<EOF
-<?php return [
-    'parent' => 'value-from-parent',
-    'imports' => [
-        '{$child1}'
-    ]
-];
-EOF;
-
-        // Save file with configuration
-        $path = $this->createTmpFile($file);
-
-        // Create empty file for cache data.
-        $cacheFile = $this->createTmpFile('');
-
-        $config->setCacheFilepath($cacheFile);
-        $config->appendFromLoader(new PhpLoader($path));
-
-        // Before save cache, this file should be empty
-        $this->assertEquals('', file_get_contents($cacheFile));
-
-        $config->saveToCache();
-
-        // After save cache, file should not be empty...
-        $this->assertNotEquals('', file_get_contents($cacheFile));
-
-        // ...and Config::anyFileChanged should be true
-        $this->assertEquals(true, $reflectionAnyFileChanged->getValue($config));
-
-        // Reset cache file and Config::anyFileChanged property
-        file_put_contents($cacheFile, '');
-        $reflectionAnyFileChanged->setValue($config, false);
-
-        // Ensure that resetting done ok.
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('', file_get_contents($cacheFile));
-
-        // Save to cache again and...
-        $config->saveToCache();
-
-        // ...should not be saved, because nothing changed, no new files was added.
-        $this->assertEquals(false, $reflectionAnyFileChanged->getValue($config));
-        $this->assertEquals('', file_get_contents($cacheFile));
-    }*/
-
     protected function createTmpFile($content)
     {
         $path = tempnam(rtrim(sys_get_temp_dir(), '/').'/', 'config');
@@ -459,7 +414,10 @@ EOF;
     {
         foreach($this->tmpFiles as $file)
         {
-            unlink($file);
+            if(is_file($file))
+            {
+                unlink($file);
+            }
         }
     }
 }

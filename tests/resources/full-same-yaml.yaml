@@ -16,8 +16,7 @@ smallFloat: 0.69999999999999996
 newLine: \n
 
 imports:
-  files:
-    custom-yaml.yaml
+  custom-yaml.yaml
 
 first:
   keyOne: value one

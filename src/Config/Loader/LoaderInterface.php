@@ -39,20 +39,6 @@ interface LoaderInterface
     public function getFilepath();
 
     /**
-     * Sets path to parent config file, which containes
-     * it in imports.file index.
-     * @param string $parentFilepath
-     * @return self
-     */
-    public function setParentFilepath($parentFilepath);
-
-    /**
-     * Gets parent filepath.
-     * @return string
-     */
-    public function getParentFilepath();
-
-    /**
      * Gets file modification time.
      * @return integer
      */

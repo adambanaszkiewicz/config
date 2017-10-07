@@ -68,7 +68,7 @@ class Config implements ConfigInterface
         if(is_string($cacheFilepath))
         {
             $this->setCacheFilepath($cacheFilepath);
-            $this->setFreshFile(new FreshFile(pathinfo($this->cacheFilepath, PATHINFO_DIRNAME).'.fresh-file'));
+            $this->setFreshFile(new FreshFile(pathinfo($this->cacheFilepath, PATHINFO_DIRNAME).'/.fresh-file'));
 
             $this->resolveCacheData();
         }
@@ -94,9 +94,22 @@ class Config implements ConfigInterface
 
             $this->parsedFiles[] = $filepath;
 
-            $this->resolveImports($loader);
+            $importedLoaders = $this->resolveImports($loader);
 
             $this->anyFileChanged = true;
+
+            if($this->freshFile)
+            {
+                $collection = [];
+
+                foreach($importedLoaders as $il)
+                    $collection[] = $il->getFilepath();
+
+                if($collection !== [])
+                {
+                    $this->freshFile->setRelatedFiles($filepath, $collection);
+                }
+            }
         }
 
         return $this;
@@ -107,7 +120,19 @@ class Config implements ConfigInterface
      */
     public function import($filepath)
     {
-        return $this->appendFromLoader(BaseLoader::factory($filepath));
+        if(is_array($filepath))
+        {
+            foreach($filepath as $file)
+            {
+                $this->appendFromLoader(BaseLoader::factory($file));
+            }
+        }
+        elseif(is_string($filepath))
+        {
+            $this->appendFromLoader(BaseLoader::factory($filepath));
+        }
+
+        return $this;
     }
 
     /**
@@ -226,80 +251,9 @@ class Config implements ConfigInterface
         return $data;
     }
 
-    /**
-     * Check if given filepane exists in $this->modificationTimes array
-     * and if is fresh. Otherwise return false.
-     * @param  string  $filepath Filepath to check if file is fresh.
-     * @return boolean
-     */
-    protected function isFresh($filepath)
-    {
-        if($this->freshFile)
-        {
-            return $this->freshFile->isFresh($filepath);
-        }
-        else
-        {
-            return true;
-        }
-    }
-
-    /**
-     * Check if in current Config data exists index 'imports.file',
-     * and import files from given paths relative to file that
-     * contains these imports. At the end removes these indexes.
-     * @param  LoaderInterface $loader LoaderInterface object, which
-     *                                 contains filewith imports we
-     *                                 have to resolve.
-     * @return self
-     */
-    protected function resolveImports(LoaderInterface $loader)
-    {
-        $filepath = $loader->getFilepath();
-
-        if(isset($this->data['imports']) === false || is_array($this->data['imports']) === false)
-        {
-            return $this;
-        }
-
-        $loaders = [];
-
-        foreach($this->data['imports'] as $file)
-        {
-            $path = $this->createFilepath($loader, $file);
-
-            if(is_file($path) === false)
-            {
-                throw new RuntimeException('Imported config file "'.$path.'" does not exists.');
-            }
-
-            $loaders[] = BaseLoader::factory($path)->setParentFilepath($filepath);
-        }
-
-        unset($this->data['imports']);
-
-        /**
-         * First we create loaders, and after remove imports, append these loaders
-         * to object. This prevent recursion loop.
-         */
-        foreach($loaders as $loader)
-        {
-            $this->appendFromLoader($loader, true);
-        }
-
-        return $this;
-    }
-
     public function getParsedFiles()
     {
         return $this->parsedFiles;
-    }
-
-    protected function createFilepath(LoaderInterface $loader, $file)
-    {
-        $dir = pathinfo($loader->getFilepath(), PATHINFO_DIRNAME);
-
-        return realpath("$dir/$file");
     }
 
     /**
@@ -354,10 +308,81 @@ class Config implements ConfigInterface
 
         if($this->anyFileChanged)
         {
-            return file_put_contents($this->cacheFilepath, "<?php return ['meta' => ".var_export($this->metadata, true).", 'data' => ".var_export($this->data, true)."];");
+            return file_put_contents($this->cacheFilepath, "<?php return ".var_export($this->data, true).";");
         }
 
         return null;
+    }
+
+    /**
+     * Check if given filepane exists in $this->modificationTimes array
+     * and if is fresh. Otherwise return false.
+     * @param  string  $filepath Filepath to check if file is fresh.
+     * @return boolean
+     */
+    protected function isFresh($filepath)
+    {
+        if($this->freshFile)
+        {
+            return $this->freshFile->isFresh($filepath);
+        }
+        else
+        {
+            return true;
+        }
+    }
+
+    /**
+     * Check if in current Config data exists index 'imports.file',
+     * and import files from given paths relative to file that
+     * contains these imports. At the end removes these indexes.
+     * @param  LoaderInterface $loader LoaderInterface object, which
+     *                                 contains filewith imports we
+     *                                 have to resolve.
+     * @return self
+     */
+    protected function resolveImports(LoaderInterface $loader)
+    {
+        $filepath = $loader->getFilepath();
+
+        if(isset($this->data['imports']) === false || is_array($this->data['imports']) === false)
+        {
+            return [];
+        }
+
+        $loaders = [];
+
+        foreach($this->data['imports'] as $file)
+        {
+            $path = $this->createFilepath($loader, $file);
+
+            if(is_file($path) === false)
+            {
+                throw new RuntimeException('Imported config file "'.$path.'" does not exists.');
+            }
+
+            $loaders[] = BaseLoader::factory($path);
+        }
+
+        unset($this->data['imports']);
+
+        /**
+         * First we create loaders, and after remove imports, append these loaders
+         * to object. This prevent recursion loop.
+         */
+        foreach($loaders as $loader)
+        {
+            $this->appendFromLoader($loader);
+        }
+
+        return $loaders;
+    }
+
+    protected function createFilepath(LoaderInterface $loader, $file)
+    {
+        $dir = pathinfo($loader->getFilepath(), PATHINFO_DIRNAME);
+
+        return realpath("$dir/$file");
     }
 
     /**

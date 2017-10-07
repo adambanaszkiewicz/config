@@ -25,12 +25,6 @@ abstract class BaseLoader implements LoaderInterface
     protected $filepath;
 
     /**
-     * Configuration parent filepath.
-     * @var string
-     */
-    protected $parentFilepath;
-
-    /**
      * Store cached data from file, prevent multiple times
      * include and parse the same file.
      * @var mixed
@@ -78,24 +72,6 @@ abstract class BaseLoader implements LoaderInterface
     public function getFilepath()
     {
         return $this->filepath;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function setParentFilepath($parentFilepath)
-    {
-        $this->parentFilepath = $parentFilepath;
-
-        return $this;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getParentFilepath()
-    {
-        return $this->parentFilepath;
     }
 
     /**

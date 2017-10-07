@@ -17,9 +17,7 @@
     'newLine' => '
 ',
     'imports' => [
-        'files' => [
-            'custom-php.php'
-        ]
+        'custom-php.php'
     ],
     'first' => [
         'keyOne' => 'value one',

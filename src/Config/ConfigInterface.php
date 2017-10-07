@@ -21,18 +21,18 @@ use Requtize\Config\Loader\LoaderInterface;
 interface ConfigInterface
 {
     /**
+     * Shorthand to importing config files.
+     * @param  string|array $filepath Path or array of paths to config files.
+     * @return self
+     */
+    public function import($filepath);
+
+    /**
      * Appends config data from LoaderInterface object.
      * @param  LoaderInterface $loader LoaderInterface object with passed config filepath.
      * @return self
      */
     public function appendFromLoader(LoaderInterface $loader);
-
-    /**
-     * Shorthand to importing config files.
-     * @param  string $filepath Path to config file.
-     * @return self
-     */
-    public function import($filepath);
 
     /**
      * Allows merging current config data with other ConfigInterface object.
@@ -75,6 +75,12 @@ interface ConfigInterface
      * @return mixed
      */
     public function access($path);
+
+    /**
+     * Reutrns array of all parsed filepaths.
+     * @return array
+     */
+    public function getParsedFiles();
 
     /**
      * Sets cache filepath.

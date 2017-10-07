@@ -41,6 +41,8 @@ $config = new Config('config-filepath.php');
 $config->import('filename.php');
 $config->import('filename.ini');
 $config->import('filename.yaml');
+// Or import as array
+$config->import([ 'filename.php', 'filename.ini', 'filename.yaml' ]);
 
 // Get value - each index in multidimensional array separate by dot
 // Default value will be returned if given key(s) will not be existed
@@ -64,32 +66,29 @@ If you want to import other files, You musn't write any PHP to do this. Just use
 return [
     // Other data...
     'imports' => [
-        'files' => [
-            'filepath.php',
-            '../../global-config/main.ini',
-            './some-yaml.file.yaml'
-        ]
+        'filepath.php',
+        '../../global-config/main.ini',
+        './some-yaml.file.yaml'
     ]
     // Other data...
-]
+];
 ```
 
 ```yaml
 # Other data...
 imports:
-    files:
-        "filepath.php"
-        "../../global-config/main.ini"
-        "./some-yaml.file.yaml"
+    "filepath.php"
+    "../../global-config/main.ini"
+    "./some-yaml.file.yaml"
 # Other data...
 ```
 
 ```ini
 ; Other data...
 [imports]
-files[0] = "filepath.php"
-files[1] = "../../global-config/main.ini"
-files[2] = "./some-yaml.file.yaml"
+0 = "filepath.php"
+1 = "../../global-config/main.ini"
+2 = "./some-yaml.file.yaml"
 ; Other data...
 ```
 
