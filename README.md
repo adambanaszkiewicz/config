@@ -8,6 +8,23 @@ This library provides configurational files system, that alows You to combine mu
 4. Simple dot notation for accessing arrays
 5. Cache system, for save parsed files into one
 
+## Installation
+
+### Via composer.json
+
+```json
+{
+    "require": {
+        "requtize/config": "^1.1.0"
+    }
+}
+```
+
+### Via Composer CLI
+
+```cli
+composer require requtize/config:^1.1.0
+```
 
 ### Dot notation
 
