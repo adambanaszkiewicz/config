@@ -16,7 +16,7 @@ smallFloat: 0.69999999999999996
 newLine: \n
 
 imports:
-  custom-yaml.yaml
+  - custom-yaml.yaml
 
 first:
   keyOne: value one
@@ -32,20 +32,20 @@ first:
 
 database:
   default:
-    host: 192.168.1.101,
-    port: 3306,
-    name: default_database,
-    user: root,
-    pass: "2f,.-0"34512'""
+    host: 192.168.1.101
+    port: 3306
+    name: default_database
+    user: root
+    pass: "2f,.-0\"34512'\""
   bkp1:
-    host: 192.168.1.111,
-    port: 3306,
-    name: bkp_1_database,
-    user: bkp_1,
-    pass: "566&2n3\'-&5dnA"
+    host: 192.168.1.111
+    port: 3306
+    name: bkp_1_database
+    user: bkp_1
+    pass: "566&2n3'-&5dnA"
   bkp2:
-    host: 192.168.1.112,
-    port: 3306,
-    name: bkp_2_database,
-    user: bkp_2,
+    host: 192.168.1.112
+    port: 3306
+    name: bkp_2_database
+    user: bkp_2
     pass: "56\"45H^e-&5dnA"

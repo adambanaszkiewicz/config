@@ -4,17 +4,18 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  *
- * Copyright (c) 2016 - 2017 by Adam Banaszkiewicz
+ * Copyright (c) 2016 - 2018 by Adam Banaszkiewicz
  *
  * @license   MIT License
- * @copyright Copyright (c) 2016 - 2017, Adam Banaszkiewicz
+ * @copyright Copyright (c) 2016 - 2018, Adam Banaszkiewicz
  * @link      https://github.com/requtize/config
  */
 
 namespace Requtize\Config\Loader;
 
 use RuntimeException;
-use Spyc;
+use Symfony\Component\Yaml\Yaml;
+use Symfony\Component\Yaml\Exception\ParseException;
 
 /**
  * @author Adam Banaszkiewicz https://github.com/requtize
@@ -28,9 +29,9 @@ class YamlLoader extends BaseLoader
     {
         parent::__construct($filepath);
 
-        if(! class_exists('Spyc'))
+        if(class_exists('Symfony\Component\Yaml\Yaml') === false)
         {
-            throw new RuntimeException('Spyc library must be installed.');
+            throw new RuntimeException('Symfony Yaml library must be installed.');
         }
     }
 
@@ -39,7 +40,7 @@ class YamlLoader extends BaseLoader
      */
     public function load($forceNew = false)
     {
-        if(! is_file($this->filepath))
+        if(is_file($this->filepath) === false)
         {
             throw new RuntimeException('File "'.$this->filepath.'" cannot be found.');
         }
@@ -54,6 +55,6 @@ class YamlLoader extends BaseLoader
             return $this->cachedData;
         }
 
-        return $this->cachedData = Spyc::YAMLLoad($this->filepath);
+        return $this->cachedData = Yaml::parseFile($this->filepath);
     }
 }
