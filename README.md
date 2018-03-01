@@ -15,7 +15,7 @@ This library provides configurational files system, that alows You to combine mu
 ```json
 {
     "require": {
-        "requtize/config": "^1.1.0"
+        "requtize/config": "^1.2.0"
     }
 }
 ```
@@ -23,7 +23,7 @@ This library provides configurational files system, that alows You to combine mu
 ### Via Composer CLI
 
 ```cli
-composer require requtize/config:^1.1.0
+composer require requtize/config:^1.2.0
 ```
 
 ### Dot notation
