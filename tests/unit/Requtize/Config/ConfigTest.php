@@ -78,6 +78,13 @@ class ConfigTest extends PHPUnit_Framework_TestCase
 
         $this->assertEquals([], $config->all());
 
+        // Empty file.
+        $config->import($this->createTmpFile(''));
+
+        $this->assertEquals([], $config->all());
+
+
+
         $file = <<<EOF
 <?php return [
     'trueType' => true

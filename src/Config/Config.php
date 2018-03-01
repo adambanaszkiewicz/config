@@ -90,7 +90,10 @@ class Config implements ConfigInterface
         {
             $data = $loader->load(true);
 
-            $this->data = array_merge($this->data, $data);
+            if(is_array($data))
+            {
+                $this->data = array_merge($this->data, $data);
+            }
 
             $this->parsedFiles[] = $filepath;
 
